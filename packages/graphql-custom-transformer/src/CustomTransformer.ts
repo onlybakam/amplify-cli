@@ -1,16 +1,26 @@
-import { Transformer, TransformerContext } from 'graphql-transformer-core'
-import { DirectiveNode, ObjectTypeDefinitionNode, NamedTypeNode, InterfaceTypeDefinitionNode, FieldDefinitionNode } from 'graphql'
+import { Transformer, TransformerContext, InvalidDirectiveError } from 'graphql-transformer-core'
+import {
+    DirectiveNode, ObjectTypeDefinitionNode, NamedTypeNode,
+    InterfaceTypeDefinitionNode, FieldDefinitionNode, InputObjectTypeDefinitionNode
+} from 'graphql'
 import { ResourceFactory } from './resources'
-import { blankObjectExtension, extensionWithFields, ResolverResourceIDs, toUpper, getDirectiveArgument } from 'graphql-transformer-common'
+import {
+    blankObjectExtension, extensionWithFields, ResolverResourceIDs,
+    toUpper, getDirectiveArgument, makeInputValueDefinition, makeNamedType, ModelResourceIDs
+} from 'graphql-transformer-common'
 import Resource from "cloudform/types/resource";
+import { makeSubscriptionField } from './definitions';
 
+type blankKeys = 'Mutation' | 'Query' | 'Subscription'
+type parentFieldTuple = { parentName: string, fieldName: string }
 /**
  * custom transformer includes files from custom/resolvers folder
  */
 export class CustomTransformer extends Transformer {
 
     resources: ResourceFactory
-    blanks: { [key: string]: any } = {
+    cleanupList: parentFieldTuple[] = []
+    blanks: { [key in blankKeys]: any } = {
         Mutation: blankObjectExtension('Mutation'),
         Query: blankObjectExtension('Query'),
         Subscription: blankObjectExtension('Subscription')
@@ -19,7 +29,7 @@ export class CustomTransformer extends Transformer {
     constructor() {
         super(
             'CustomTransformer',
-            `directive @custom(name: String) on OBJECT | FIELD_DEFINITION`
+            `directive @custom(subscription: Boolean, on: String, watchedFields: [String!], skipInput: Boolean) on OBJECT | FIELD_DEFINITION`
         )
         this.resources = new ResourceFactory();
     }
@@ -27,6 +37,8 @@ export class CustomTransformer extends Transformer {
     public after = (ctx: TransformerContext): void => {
         ctx.addObjectExtension(this.blanks.Mutation)
         ctx.addObjectExtension(this.blanks.Query)
+        ctx.addObjectExtension(this.blanks.Subscription)
+        this.cleanupList.forEach(o => this.cleanUpInputObject(o.parentName, o.fieldName, ctx))
         this.linkResolversToFilePath(ctx);
     }
 
@@ -62,6 +74,35 @@ export class CustomTransformer extends Transformer {
         }
     }
 
+    private cleanUpInputObject(
+        parentName: string,
+        fieldName: string,
+        ctx: TransformerContext
+    ): void {
+        const inputNames = []
+        inputNames.push(ModelResourceIDs.ModelCreateInputObjectName(parentName))
+        inputNames.push(ModelResourceIDs.ModelUpdateInputObjectName(parentName))
+        inputNames.push(ModelResourceIDs.ModelFilterInputTypeName(parentName))
+        inputNames.forEach(inputName => {
+            // console.log('skip input', inputName)
+            // console.log(Object.keys(ctx.nodeMap))
+            const input = ctx.nodeMap[inputName] as InputObjectTypeDefinitionNode
+            if (!input) { return }
+            // console.log('found input')
+            const foundIndex = input.fields.findIndex(f => f.name.value === fieldName)
+            // console.log('foundIndex', foundIndex)
+            if (foundIndex > -1) {
+                const fields = [...input.fields.slice(0, foundIndex), ...input.fields.slice(foundIndex + 1)]
+                ctx.nodeMap[inputName] = {
+                    kind: 'InputObjectTypeDefinition',
+                    name: { kind: 'Name', value: input.name.value },
+                    fields,
+                    directives: []
+                }
+            }
+        })
+    }
+
     public field = (
         parent: ObjectTypeDefinitionNode | InterfaceTypeDefinitionNode,
         field: FieldDefinitionNode,
@@ -70,8 +111,13 @@ export class CustomTransformer extends Transformer {
     ): void => {
         const defName = parent.name.value
         const fieldName = field.name.value
-        let typeName = getDirectiveArgument(directive)('name');
+        let buildSub = getDirectiveArgument(directive)('subscription');
+        let watchedFields = getDirectiveArgument(directive)('watchedFields') || [];
+        let onWatch = getDirectiveArgument(directive)('on') || [];
+        let skipInput = getDirectiveArgument(directive)('skipInput')
+        let watchedArgs = []
         let typeNode = field.type
+        let typeName = null
         while (!typeName) {
             if (typeNode.kind === 'NamedType') {
                 typeName = (typeNode as NamedTypeNode).name.value
@@ -79,8 +125,44 @@ export class CustomTransformer extends Transformer {
                 typeNode = typeNode.type
             }
         }
-        const resolver = this.resources.makeCustomResolverWithS3(defName, fieldName, typeName)
-        ctx.setResource(ResolverResourceIDs.ResolverResourceID(defName, toUpper(fieldName)), resolver)
+
+        if (skipInput) {
+            this.cleanupList.push({ parentName: parent.name.value, fieldName: field.name.value })
+            return
+        }
+
+        if (defName !== 'Subscription') {
+            const resolver = this.resources.makeCustomResolverWithS3(defName, fieldName, typeName)
+            ctx.setResource(ResolverResourceIDs.ResolverResourceID(defName, toUpper(fieldName)), resolver)
+            // console.log(defName, buildSub)
+            if (defName === 'Mutation' && buildSub) {
+                watchedFields.forEach(iWatchedField => {
+                    const arg = field.arguments.find(a => a.name.value === iWatchedField)
+                    // console.log('Found arg >', arg)
+                    watchedArgs.push(makeInputValueDefinition(arg.name.value, makeNamedType((arg.type as NamedTypeNode).name.value)))
+                })
+                const subscription = makeSubscriptionField(
+                    'on' + (fieldName[0].toUpperCase()) + fieldName.slice(1),
+                    watchedArgs,
+                    typeName,
+                    [resolver.Properties.FieldName]
+                )
+                // console.log(subscription)
+                this.blanks.Subscription = extensionWithFields(this.blanks.Subscription, [subscription])
+            }
+        } else {
+            if (!onWatch) {
+                throw new InvalidDirectiveError(`@custom: specify 'on' for custom subscription`)
+            }
+            const subscription = makeSubscriptionField(
+                field.name.value,
+                field.arguments.map(arg => makeInputValueDefinition(arg.name.value, makeNamedType((arg.type as NamedTypeNode).name.value))),
+                typeName,
+                [onWatch]
+            )
+            this.blanks.Subscription = extensionWithFields(this.blanks.Subscription, [subscription])
+        }
+
 
         if (defName === 'Mutation') {
             this.blanks.Mutation = extensionWithFields(this.blanks.Mutation, [field])
