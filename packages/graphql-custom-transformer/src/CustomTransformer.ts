@@ -6,10 +6,10 @@ import {
 import { ResourceFactory } from './resources'
 import {
     blankObjectExtension, extensionWithFields, ResolverResourceIDs,
-    toUpper, getDirectiveArgument, makeInputValueDefinition, makeNamedType, ModelResourceIDs
+    toUpper, getDirectiveArgument, makeInputValueDefinition, makeNamedType, ModelResourceIDs, makeField
 } from 'graphql-transformer-common'
 import Resource from "cloudform/types/resource";
-import { makeSubscriptionField } from './definitions';
+import { makeSubscriptionField, makeModelConnectionField } from './definitions';
 
 type blankKeys = 'Mutation' | 'Query' | 'Subscription'
 type parentFieldTuple = { parentName: string, fieldName: string }
@@ -29,7 +29,12 @@ export class CustomTransformer extends Transformer {
     constructor() {
         super(
             'CustomTransformer',
-            `directive @custom(subscription: Boolean, on: String, watchedFields: [String!], skipInput: Boolean) on OBJECT | FIELD_DEFINITION`
+            `directive @custom(
+                subscription: Boolean,
+                on: String, watchedFields: [String!],
+                skipInput: Boolean,
+                connection: Boolean
+            ) on OBJECT | FIELD_DEFINITION`
         )
         this.resources = new ResourceFactory();
     }
@@ -111,10 +116,12 @@ export class CustomTransformer extends Transformer {
     ): void => {
         const defName = parent.name.value
         const fieldName = field.name.value
-        let buildSub = getDirectiveArgument(directive)('subscription');
-        let watchedFields = getDirectiveArgument(directive)('watchedFields') || [];
-        let onWatch = getDirectiveArgument(directive)('on') || [];
-        let skipInput = getDirectiveArgument(directive)('skipInput')
+        const directiveFn = getDirectiveArgument(directive)
+        let buildSub = directiveFn('subscription');
+        let watchedFields = directiveFn('watchedFields') || [];
+        let onWatch = directiveFn('on') || [];
+        let skipInput = directiveFn('skipInput')
+        let isConn = directiveFn('connection')
         let watchedArgs = []
         let typeNode = field.type
         let typeName = null
@@ -149,6 +156,10 @@ export class CustomTransformer extends Transformer {
                 )
                 // console.log(subscription)
                 this.blanks.Subscription = extensionWithFields(this.blanks.Subscription, [subscription])
+            }
+
+            if (defName === 'Query' && isConn) {
+                field = makeModelConnectionField(field)
             }
         } else {
             if (!onWatch) {

@@ -1,13 +1,15 @@
 import {
   ObjectTypeDefinitionNode, InputObjectTypeDefinitionNode,
-  InputValueDefinitionNode, FieldDefinitionNode, Kind, TypeNode,
+  InputValueDefinitionNode, FieldDefinitionNode, Kind, TypeNode, NamedTypeNode,
 } from 'graphql'
 import {
   makeNamedType,
   makeField,
   makeDirective,
   makeArgument,
-  makeValueNode
+  makeValueNode,
+  ModelResourceIDs,
+  makeInputValueDefinition
 } from 'graphql-transformer-common'
 
 export function makeSubscriptionField(
@@ -23,5 +25,27 @@ export function makeSubscriptionField(
         [makeArgument('mutations', makeValueNode(mutations))]
       )
     ]
+  )
+}
+
+export function makeModelConnectionField(field: FieldDefinitionNode): FieldDefinitionNode {
+  let typeNode = field.type
+  let typeName = null
+  while (!typeName) {
+    if (typeNode.kind === 'NamedType') {
+      typeName = (typeNode as NamedTypeNode).name.value
+    } else {
+      typeNode = typeNode.type
+    }
+  }
+  return makeField(
+    field.name.value,
+    [...field.arguments,
+    makeInputValueDefinition('filter', makeNamedType(ModelResourceIDs.ModelFilterInputTypeName(typeName))),
+    makeInputValueDefinition('sortDirection', makeNamedType('ModelSortDirection')),
+    makeInputValueDefinition('limit', makeNamedType('Int')),
+    makeInputValueDefinition('nextToken', makeNamedType('String'))
+    ],
+    makeNamedType(ModelResourceIDs.ModelConnectionTypeName(typeName))
   )
 }
