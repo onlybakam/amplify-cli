@@ -23,6 +23,7 @@ function uploadAppSyncFiles(context, resources) {
     const { category, resourceName } = resource;
     const backEndDir = context.amplify.pathManager.getBackendDirPath();
     const resourceBuildDir = path.normalize(path.join(backEndDir, category, resourceName, 'build'));
+    const customResolverDir = path.normalize(path.join(backEndDir, category, resourceName, 'custom', 'resolvers'));
     const resolverDir = path.normalize(path.join(resourceBuildDir, 'resolvers'));
     const functionsDir = path.normalize(path.join(resourceBuildDir, 'functions'));
     const schemaFilePath = path.normalize(path.join(resourceBuildDir, schemaFileName));
@@ -58,6 +59,18 @@ function uploadAppSyncFiles(context, resources) {
       uploadFilePromises.push(uploadAppSyncResolver(
         context, file,
         resolverFilePath, buildTimeStamp,
+      ));
+    });
+
+
+    const customResolverFiles = fs.readdirSync(customResolverDir);
+
+    customResolverFiles.forEach((file) => {
+      const resolverFilePath = path.join(customResolverDir, file);
+
+      uploadFilePromises.push(uploadAppSyncFile(
+        context, file,
+        resolverFilePath, s3LocationMap, buildTimeStamp,
       ));
     });
 

@@ -114,6 +114,7 @@ export function validateModelSchema(doc: DocumentNode) {
         .map((d: DirectiveDefinitionNode) => builder.buildDirective(d))
     const types = fullDocument.definitions
         .filter(d => d.kind !== Kind.DIRECTIVE_DEFINITION)
+        .filter(d => (d as TypeDefinitionNode).name.value !== 'Query')
         .map((d: TypeDefinitionNode) => builder.buildType(d))
     const outputTypes = types.filter(
         t => isOutputType(t)
