@@ -33,13 +33,6 @@ export class ResourceFactory {
     }
 
     public removeDotsAndCamelcase(name: string) {
-        return name.split('.').reduce((acc, cur, i) => (acc + (i > 0 ? toUpper(cur) : cur )), "")
-        // var nameCopy = name
-        // for (var i = 0; i < name.length; i++) {
-        //     if (name[i] === '.') {
-        //         nameCopy = nameCopy.substr(0, i + 1) + nameCopy.charAt(i + 1).toUpperCase() + nameCopy.slice(i + 2)
-        //     }
-        // }
-        // return nameCopy.replace(/\./g, '')
+        return name.split('.').reduce((acc, cur, i) => (acc + (i > 0 ? toUpper(cur) : cur)), "")
     }
 }

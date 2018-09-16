@@ -11,6 +11,7 @@ import {
   ModelResourceIDs,
   makeInputValueDefinition
 } from 'graphql-transformer-common'
+import { getTypeName } from './utils';
 
 export function makeSubscriptionField(
   fieldName: string, args: InputValueDefinitionNode[],
@@ -29,15 +30,7 @@ export function makeSubscriptionField(
 }
 
 export function makeModelConnectionField(field: FieldDefinitionNode): FieldDefinitionNode {
-  let typeNode = field.type
-  let typeName = null
-  while (!typeName) {
-    if (typeNode.kind === 'NamedType') {
-      typeName = (typeNode as NamedTypeNode).name.value
-    } else {
-      typeNode = typeNode.type
-    }
-  }
+  let typeName = getTypeName(field)
   return makeField(
     field.name.value,
     [...field.arguments,

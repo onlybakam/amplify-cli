@@ -10,6 +10,7 @@ import {
 } from 'graphql-transformer-common'
 import Resource from "cloudform/types/resource";
 import { makeSubscriptionField, makeModelConnectionField } from './definitions';
+import { getTypeName } from './utils';
 
 type blankKeys = 'Mutation' | 'Query' | 'Subscription'
 type parentFieldTuple = { parentName: string, fieldName: string }
@@ -118,20 +119,12 @@ export class CustomTransformer extends Transformer {
         const fieldName = field.name.value
         const directiveFn = getDirectiveArgument(directive)
         let buildSub = directiveFn('subscription');
-        let watchedFields = directiveFn('watchedFields') || [];
+        let watchedFields: string[] = directiveFn('watchedFields') || [];
         let onWatch = directiveFn('on') || [];
         let skipInput = directiveFn('skipInput')
         let isConn = directiveFn('connection')
         let watchedArgs = []
-        let typeNode = field.type
-        let typeName = null
-        while (!typeName) {
-            if (typeNode.kind === 'NamedType') {
-                typeName = (typeNode as NamedTypeNode).name.value
-            } else {
-                typeNode = typeNode.type
-            }
-        }
+        let typeName = getTypeName(field)
 
         if (skipInput) {
             this.cleanupList.push({ parentName: parent.name.value, fieldName: field.name.value })
@@ -143,8 +136,9 @@ export class CustomTransformer extends Transformer {
             ctx.setResource(ResolverResourceIDs.ResolverResourceID(defName, toUpper(fieldName)), resolver)
             // console.log(defName, buildSub)
             if (defName === 'Mutation' && buildSub) {
+                const returnObj = ctx.getObject(typeName)
                 watchedFields.forEach(iWatchedField => {
-                    const arg = field.arguments.find(a => a.name.value === iWatchedField)
+                    const arg = returnObj.fields.find(f => f.name.value === iWatchedField)
                     // console.log('Found arg >', arg)
                     watchedArgs.push(makeInputValueDefinition(arg.name.value, makeNamedType((arg.type as NamedTypeNode).name.value)))
                 })
