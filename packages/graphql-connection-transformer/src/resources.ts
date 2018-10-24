@@ -7,7 +7,7 @@ import {
     ref, obj, set, nul,
     ifElse, compoundExpression, bool, equals, iff, raw
 } from 'graphql-mapping-template'
-import { ResourceConstants, ModelResourceIDs } from 'graphql-transformer-common'
+import { ResourceConstants, ModelResourceIDs, DEFAULT_SCALARS } from 'graphql-transformer-common'
 import { InvalidDirectiveError } from 'graphql-transformer-core';
 
 export class ResourceFactory {
@@ -35,7 +35,7 @@ export class ResourceFactory {
         table: Table,
         connectionName: string,
         connectionAttributeName: string,
-        sortAttributeName?: string
+        sortField: { name: string, type: string } = null
     ): Table {
         const gsis = table.Properties.GlobalSecondaryIndexes || [] as GlobalSecondaryIndex[]
         if (gsis.length >= 5) {
@@ -48,15 +48,13 @@ export class ResourceFactory {
         // If the GSI does not exist yet then add it.
         const existingGSI = gsis.find(gsi => gsi.IndexName === connectionGSIName)
         if (!existingGSI) {
+            const keySchema = [new KeySchema({ AttributeName: connectionAttributeName, KeyType: 'HASH' })]
+            if (sortField) {
+                keySchema.push(new KeySchema({ AttributeName: sortField.name, KeyType: 'RANGE' }))
+            }
             gsis.push(new GlobalSecondaryIndex({
                 IndexName: connectionGSIName,
-                KeySchema: [
-                    new KeySchema({
-                        AttributeName: connectionAttributeName,
-                        KeyType: 'HASH'
-                    })
-                    , ...(sortAttributeName ? [new KeySchema({ AttributeName: sortAttributeName, KeyType: 'RANGE' })] : [])
-                ],
+                KeySchema: keySchema,
                 Projection: new Projection({
                     ProjectionType: 'ALL'
                 }),
@@ -77,12 +75,16 @@ export class ResourceFactory {
             }))
         }
 
-        if (sortAttributeName) {
-            const existingSortAttribute = attributeDefinitions.find(attr => attr.AttributeName === sortAttributeName)
+        // If the attribute definition does not exist yet, add it.
+        if (sortField) {
+            const existingSortAttribute = attributeDefinitions.find(attr => attr.AttributeName === sortField.name)
             if (!existingSortAttribute) {
-                attributeDefinitions.push(new AttributeDefinition({ AttributeName: sortAttributeName, AttributeType: 'S' }))
+                const scalarType = DEFAULT_SCALARS[sortField.type]
+                const attributeType = scalarType === 'String' ? 'S' : 'N'
+                attributeDefinitions.push(new AttributeDefinition({ AttributeName: sortField.name, AttributeType: attributeType }))
             }
         }
+
         table.Properties.GlobalSecondaryIndexes = gsis
         table.Properties.AttributeDefinitions = attributeDefinitions
         return table
