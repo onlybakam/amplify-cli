@@ -4,12 +4,12 @@ const os = require('os');
 const ini = require('ini');
 const which = require('which');
 
-function getPrefix() {
+function getGlobalNodeModuleDirPath() {
   const yarnPrefix = getYarnPrefix();
   if (__dirname.includes(yarnPrefix)) {
-    return yarnPrefix;
+    return path.join(yarnPrefix, 'node_modules');
   }
-  return getNpmPrefix();
+  return path.join(getNpmPrefix(), 'lib', 'node_modules');
 }
 
 function getYarnPrefix() {
@@ -107,4 +107,4 @@ function expand(filePath) {
   return filePath;
 }
 
-module.exports = getPrefix;
+module.exports = { getGlobalNodeModuleDirPath };

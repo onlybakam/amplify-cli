@@ -29,7 +29,7 @@ The AWS Amplify CLI is a toolchain which includes a robust feature set for simpl
 
 ## Install the CLI
 
- - Requires Node.js® version 8.x or later
+ - Requires Node.js® version 8.11.x or later
 
 
 Install and configure the Amplify CLI as follows:
@@ -68,6 +68,7 @@ The Amplify CLI supports the commands shown in the following table.
 - [analytics (Amazon Pinpoint)](packages/amplify-category-analytics/Readme.md)
 - [hosting (Amazon S3 and Amazon CloudFront distribution)](packages/amplify-category-hosting/Readme.md)
 - [notifications (Amazon Pinpoint)](packages/amplify-category-notifications/Readme.md)
+- [interactions (Amazon Lex)](packages/amplify-category-interactions/Readme.md)
 
 ## Tutorials
 

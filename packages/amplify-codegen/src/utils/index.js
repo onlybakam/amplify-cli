@@ -5,9 +5,12 @@ const downloadIntrospectionSchema = require('./downloadIntrospectionSchema');
 const getSchemaDownloadLocation = require('./getSchemaDownloadLocation');
 const getIncludePattern = require('./getIncludePattern');
 const getAppSyncAPIInfo = require('./getAppSyncAPIInfo');
+const getProjectAwsRegion = require('./getProjectAWSRegion');
 const getGraphQLDocPath = require('./getGraphQLDocPath');
 const downloadIntrospectionSchemaWithProgress = require('./generateIntrospectionSchemaWithProgress');
 const isAppSyncApiPendingPush = require('./isAppSyncApiPendingPush');
+const updateAmplifyMeta = require('./updateAmplifyMeta');
+const selectAPIKey = require('./selectAPIKey');
 
 module.exports = {
   getAppSyncAPIDetails,
@@ -18,6 +21,9 @@ module.exports = {
   downloadIntrospectionSchemaWithProgress,
   getIncludePattern,
   getAppSyncAPIInfo,
+  getProjectAwsRegion,
   getGraphQLDocPath,
   isAppSyncApiPendingPush,
+  updateAmplifyMeta,
+  selectAPIKey,
 };

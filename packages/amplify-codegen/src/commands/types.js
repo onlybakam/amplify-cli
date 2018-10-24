@@ -31,11 +31,12 @@ async function generateTypes(context, forceDownloadSchema) {
           context,
           cfg.amplifyExtension.graphQLApiId,
           cfg.schema,
+          cfg.amplifyExtension.region,
         );
       }
       const codeGenSpinner = new Ora(constants.INFO_MESSAGE_CODEGEN_GENERATE_STARTED);
       codeGenSpinner.start();
-      generate(queries, schema, output, '', target, 'gql', '', {
+      generate(queries, schema, output, '', target, '', '', {
         addTypename: true,
       });
       codeGenSpinner.succeed(`${constants.INFO_MESSAGE_CODEGEN_GENERATE_SUCCESS} ${output}`);

@@ -42,4 +42,16 @@ export class ModelResourceIDs {
     static ModelOnDeleteSubscriptionName(typeName: string): string {
         return graphqlName(`onDelete` + toUpper(typeName))
     }
+    static NonModelInputObjectName(typeName: string): string {
+        return graphqlName(toUpper(typeName) + 'Input')
+    }
+    static UrlParamsInputObjectName(typeName: string, fieldName: string) {
+        return graphqlName(toUpper(typeName) + toUpper(fieldName) + 'ParamsInput')
+    }
+    static HttpQueryInputObjectName(typeName: string, fieldName: string) {
+        return graphqlName(toUpper(typeName) + toUpper(fieldName) + 'QueryInput')
+    }
+    static HttpBodyInputObjectName(typeName: string, fieldName: string) {
+        return graphqlName(toUpper(typeName) + toUpper(fieldName) + 'BodyInput')
+    }
 }
